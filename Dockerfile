@@ -1,23 +1,24 @@
-# Debian bookworm running golang:1.23.1
-FROM golang:1.23.1-bookworm
+# Alpine Linux 3.20 running golang 1.23.1
+FROM golang:1.23.1-alpine3.20 AS build
 
 # Define workdir
 WORKDIR /app
 
 # Install dependencies
-COPY go.mod go.mod
-COPY go.sum go.sum
+COPY go.* ./
 RUN go mod download
 
 # App build
 COPY main.go main.go
-COPY ./public/ public
-RUN go build
+RUN CGO_ENABLED=0 go build . && go mod tidy
 
-# Create unprivileged user
-RUN useradd -u 1000 user
-USER user
+FROM scratch AS final
+
+# Copy binary from build container
+WORKDIR /app
+COPY ./public/ public
+COPY --from=build /app/dojo-guestbook ./dojo-guestbook
 
 # Run app
 EXPOSE 3000
-ENTRYPOINT ["./dojo-guestbook"]
+ENTRYPOINT ["/app/dojo-guestbook"]
